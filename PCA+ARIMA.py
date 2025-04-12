@@ -299,6 +299,9 @@ for tmp_period in df_pca_regression_predict_final_base.columns:
 # =============================================================================
 # Output
 # =============================================================================
+working_dir = r'D:\OneDrive\Desktop'
+# the address of output. My desktop is in Onedrive, please modify accordingly.
+
 output_path = f"{working_dir}/macro_data_predict.xlsx"
 with pd.ExcelWriter(output_path) as writer:
     df_pca_regression_predict_final_base = pd.concat([macro_data_filled, df_pca_regression_predict_final_base.T])
