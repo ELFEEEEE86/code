@@ -85,13 +85,11 @@ def forecast_pcs(pca_data, n_periods, seasonal_period=4):
 # =============================================================================
 # Read Input Data
 # =============================================================================
-working_dir = r'E:\PCA'
-
 try:
-    macro_data = pd.read_excel(f"{working_dir}/Input_Data_2023.6.xlsx", sheet_name="Macro_Data")
-    macro_list = pd.read_excel(f"{working_dir}/Input_Data_HASE_RETAIL_PD_2023.9.xlsx", sheet_name="Code")
-except FileNotFoundError:
-    raise FileNotFoundError(f"Input files not found in {working_dir}")
+    macro_data = pd.read_excel("https://raw.githubusercontent.com/ELFEEEEE86/code/main/Input_Data_2023.6.xlsx", sheet_name="Macro_Data")
+    macro_list = pd.read_excel("https://raw.githubusercontent.com/ELFEEEEE86/code/main/Input_Data_HASE_RETAIL_PD_2023.9.xlsx", sheet_name="Code")
+except Exception as e:
+    raise FileNotFoundError("Input files not found or could not be read from GitHub") from e
 
 # Subset data
 macro_data['Indicator'] = pd.to_datetime(macro_data['Indicator'])
