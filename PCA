@@ -1,0 +1,89 @@
+# PCA+ARIMA Macroeconomic Forecasting Code
+
+# Import libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+import pmdarima as pm
+
+# Custom function for data standardization
+def standardize_data(df, cols):
+    df_std = df[cols].copy()
+    mean = df_std.mean()
+    std = df_std.std(ddof=1)
+    df_std = (df_std - mean) / std
+    return df_std, mean, std
+
+# Custom function for PCA
+def apply_pca(data, n_components):
+    """Apply PCA to standardized data and return transformed data, model, and variance."""
+    pca = PCA(n_components=n_components)
+    pca_result = pca.fit_transform(data)
+    explained_variance = np.sum(pca.explained_variance_ratio_)
+    return pca_result, pca, explained_variance
+
+# Custom function for ARIMA forecasting of PCs
+def forecast_pcs(pca_data, n_periods, seasonal_period):
+    """Forecast principal components using Auto-ARIMA."""
+    pc_forecasts = []
+    for i in range(pca_data.shape[1]):
+        arima_model = pm.auto_arima(
+            pca_data[:, i],
+            start_p=1, start_q=1, max_p=3, max_q=3,
+            m=seasonal_period, seasonal=True, d=None,
+            information_criterion='bic', suppress_warnings=True
+        )
+        forecast = arima_model.predict(n_periods=n_periods)
+        pc_forecasts.append(forecast)
+    return np.array(pc_forecasts).T
+
+# Ingest data from CSV
+data_path = "macro_data.csv"  
+macro_data = pd.read_csv(data_path, parse_dates=['Date'], index_col='Date')
+
+# Wrangle data: Select relevant columns and handle missing values
+macro_cols = ['GDP_Growth', 'Unemployment_Rate', 'Inflation']  
+macro_data = macro_data[macro_cols]
+macro_data.interpolate(method='linear', inplace=True)  # Linear interpolation
+macro_data.dropna(inplace=True)  
+
+# Standardize data using custom function
+macro_data_std, mean, std = standardize_data(macro_data, macro_cols)
+print("\nStandardized Data Preview:")
+print(macro_data_std.head())
+
+# Apply PCA using custom function
+pca_result, pca_model, explained_variance = apply_pca(macro_data_std, n_components=2)
+print(f"\nExplained Variance by 2 PCs: {explained_variance:.2f}")
+
+# Forecast PCs using custom function
+predict_period = 4
+pc_forecasts = forecast_pcs(pca_result, n_periods=predict_period, seasonal_period=4)
+
+# Reconstruct forecasts
+coef = pca_model.components_.T  # PCA loadings
+forecast_macro = np.dot(pc_forecasts, coef)  # Reconstruct variables
+forecast_macro = forecast_macro * std.values + mean.values  # De-normalize
+forecast_df = pd.DataFrame(
+    forecast_macro,
+    columns=macro_cols,
+    index=pd.date_range(start=macro_data.index[-1],periods=predict_period+1, freq='Q')[1:]
+)
+print("\nBaseline Forecast Preview:")
+print(forecast_df)
+
+# Visualize data: Plot historical and forecasted GDP growth
+plt.figure(figsize=(8, 4))
+plt.plot(macro_data.index, macro_data['GDP_Growth'], label='Historical', color='blue')
+plt.plot(forecast_df.index, forecast_df['GDP_Growth'], label='Forecast', color='red', linestyle='--')
+plt.title('GDP Growth: Historical and Forecast')
+plt.xlabel('Date')
+plt.ylabel('GDP Growth (%)')
+plt.legend()
+plt.grid(True)
+plt.savefig('gdp_forecast.png')
+plt.show()
+
+# Output to CSV
+forecast_df.to_csv('forecast_output.csv')
